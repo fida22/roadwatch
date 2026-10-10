@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { fail, ApiError } from '@/lib/errors';
-import { getUser, assertOwnsProject } from '@/lib/auth';
+import { getUser, assertOwnsProject } from '@/lib/server-auth';
 import { isDate } from '@/lib/validate';
 import { findConflicts, checkResolutions, saveResolutions } from '@/lib/conflicts';
 import { audit } from '@/lib/audit';
