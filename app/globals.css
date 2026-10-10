@@ -1,26 +1,16 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "leaflet/dist/leaflet.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+body { @apply bg-paper text-ink antialiased; }
+:focus-visible { outline: 2px solid #0e5a6b; outline-offset: 2px; }
+@layer components {
+  .field { @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm min-h-[44px] focus:border-brand; }
+  .label { @apply mb-1 block text-sm font-medium; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
+  .btn-secondary { @apply btn border border-line bg-white hover:bg-brand-soft; }
+  .btn-danger { @apply btn bg-st-delayed text-white hover:bg-red-700; }
+  .panel { @apply rounded-lg border border-line bg-white p-4 sm:p-5; }
 }
