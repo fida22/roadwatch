@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Nav from '@/components/Nav';
 import MockBanner from '@/components/MockBanner';
@@ -8,7 +8,7 @@ import Footer from '@/components/Footer';
 import { useAuth, homeFor } from '@/lib/auth';
 import { useApp } from '@/lib/auth-context';
 
-export default function Login() {
+function LoginForm() {
   const { signIn, mock } = useAuth();
   const { login } = useApp();
   const router = useRouter();
@@ -125,5 +125,13 @@ export default function Login() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 dark:bg-[#0f1923]" />}>
+      <LoginForm />
+    </Suspense>
   );
 }
