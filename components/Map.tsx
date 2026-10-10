@@ -12,7 +12,7 @@ function Fit({pts}:{pts?:Pt[]}){const m=useMap();useEffect(()=>{if(pts&&pts.leng
 function Focus({p}:{p?:Pt}){const m=useMap();useEffect(()=>{if(p)m.flyTo(p,15);},[p,m]);return null;}
 function Clicks({onClick}:{onClick?:(p:Pt)=>void}){useMapEvents({click:e=>onClick?.([e.latlng.lat,e.latlng.lng])});return null;}
 export default function Map({projects=[],route,others=[],baseline,baselineLabel,a,b,labelA,onClick,fit,focus}:{projects?:any[];route?:any;others?:any[];baseline?:any;baselineLabel?:string;a?:Pt;b?:Pt;labelA?:string;onClick?:(p:Pt)=>void;fit?:Pt[];focus?:Pt}){
-  return (<MapContainer center={CHENNAI} zoom={12} className="h-full w-full" scrollWheelZoom>
+  return (<MapContainer center={CHENNAI} zoom={12} className="h-full w-full min-h-[500px]" style={{ height: '100%', width: '100%', minHeight: '500px' }} scrollWheelZoom>
     <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"/>
     <Fit pts={fit}/><Focus p={focus}/><Clicks onClick={onClick}/>
     {projects.map(p=>{const closed=p.closure_type==='full_closure';return(<span key={p.id}>

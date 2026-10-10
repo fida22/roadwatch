@@ -172,6 +172,13 @@ create table audit_log (
   created_at timestamptz not null default now()
 );
 
+-- append-only trigger on audit_log
+create or replace function block_audit_changes() returns trigger language plpgsql as $$
+begin raise exception 'audit_log is append-only'; end $$;
+drop trigger if exists audit_no_update on audit_log;
+create trigger audit_no_update before update or delete on audit_log
+for each row execute function block_audit_changes();
+
 create table saved_routes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id),

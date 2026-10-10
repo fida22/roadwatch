@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { sql } from '@/lib/db';
 import { fail, ApiError } from '@/lib/errors';
 import { getUser } from '@/lib/server-auth';
@@ -6,6 +6,7 @@ import { assertDates, assertGeometry, required } from '@/lib/validate';
 import { findConflicts, checkResolutions, saveResolutions } from '@/lib/conflicts';
 import { audit } from '@/lib/audit';
 import { CLOSURE_TYPES } from '@/lib/constants';
+import { recomputeSavedRoutes } from '@/lib/saved-routes';
 
 export async function GET(req: Request) {
   try {
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
       return p;
     });
 
-    // R10c later: after(() => recomputeSavedRoutes().catch(console.error));
+    after(() => recomputeSavedRoutes().catch(console.error));
     return NextResponse.json(project, { status: 201 });
   } catch (err) { return fail(err); }
 }

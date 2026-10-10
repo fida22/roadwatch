@@ -38,6 +38,20 @@ export type Closure = {
   closure_type: string; end_date: string;
 };
 
+export function groupClosuresByEdge(
+  rows: Array<{ edge_id: string; project_id: string; title: string; department: string; closure_type: string; end_date: string }>
+) {
+  const m = new Map<string, Closure[]>();
+  for (const r of rows) {
+    const c: Closure = {
+      project_id: r.project_id, title: r.title, department: r.department,
+      closure_type: r.closure_type, end_date: r.end_date,
+    };
+    m.set(r.edge_id, [...(m.get(r.edge_id) ?? []), c]);
+  }
+  return m;
+}
+
 // edge_id -> closures blocking that edge
 export async function blockedEdges(db: DB, date: string) {
   const rows = await db`
@@ -49,15 +63,7 @@ export async function blockedEdges(db: DB, date: string) {
     where p.closure_type = 'full_closure'
       and p.status not in ('cancelled', 'completed')
       and p.start_date <= ${date}::date and p.end_date >= ${date}::date`;
-  const m = new Map<string, Closure[]>();
-  for (const r of rows) {
-    const c: Closure = {
-      project_id: r.project_id, title: r.title, department: r.department,
-      closure_type: r.closure_type, end_date: r.end_date,
-    };
-    m.set(r.edge_id, [...(m.get(r.edge_id) ?? []), c]);
-  }
-  return m;
+  return groupClosuresByEdge(rows as any);
 }
 
 const uniqueClosures = (edgeIds: string[], by: Map<string, Closure[]>) => {
@@ -143,7 +149,7 @@ export async function computeRoute(db: DB, input: RouteInput) {
     const works = await db`
       select p.id as project_id, p.title, dep.name as department, p.closure_type, p.end_date
       from projects p join departments dep on dep.id = p.department_id
-      where p.status not in ('cancelled', 'completed') and p.closure_type <> 'full_closure'
+      where p.status <> 'cancelled' and p.closure_type <> 'full_closure'
         and p.start_date <= ${travel_date}::date and p.end_date >= ${travel_date}::date
         and st_dwithin(p.geom::geography,
               st_setsrid(st_geomfromgeojson(${line}), 4326)::geography, ${WORKS_ALONG_M})`;

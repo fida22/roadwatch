@@ -3,14 +3,92 @@
 @tailwind utilities;
 @import "leaflet/dist/leaflet.css";
 
-body { @apply bg-paper text-ink antialiased; }
-:focus-visible { outline: 2px solid #0e5a6b; outline-offset: 2px; }
-@layer components {
-  .field { @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm min-h-[44px] focus:border-brand; }
-  .label { @apply mb-1 block text-sm font-medium; }
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
-  .btn-secondary { @apply btn border border-line bg-white hover:bg-brand-soft; }
-  .btn-danger { @apply btn bg-st-delayed text-white hover:bg-red-700; }
-  .panel { @apply rounded-lg border border-line bg-white p-4 sm:p-5; }
+/* ── Base ── */
+html { scroll-behavior: smooth; }
+body {
+  @apply bg-paper text-ink antialiased transition-colors duration-200;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+.dark body,
+.dark { @apply bg-[#0f1923] text-[#e8edf2]; }
+
+:focus-visible { outline: 2px solid #0e5a6b; outline-offset: 2px; }
+
+/* ── Component layer ── */
+@layer components {
+  /* Inputs */
+  .field {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm
+           min-h-[44px] focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition;
+  }
+  .dark .field {
+    @apply bg-[#1a2535] border-[#2a3a4a] text-[#e8edf2]
+           focus:border-brand focus:ring-brand/30;
+  }
+  .label { @apply mb-1 block text-sm font-medium; }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg px-4 py-2
+           text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 select-none;
+  }
+  .btn-primary  { @apply btn bg-brand text-white hover:bg-brand-dark active:scale-[.98]; }
+  .btn-secondary {
+    @apply btn border border-line bg-white hover:bg-gray-50 active:scale-[.98];
+  }
+  .dark .btn-secondary {
+    @apply bg-[#1a2535] border-[#2a3a4a] text-[#e8edf2] hover:bg-[#243040];
+  }
+  .btn-danger { @apply btn bg-st-delayed text-white hover:bg-red-700 active:scale-[.98]; }
+  .btn-ghost  { @apply btn hover:bg-gray-100 active:scale-[.98]; }
+  .dark .btn-ghost { @apply hover:bg-[#1a2535]; }
+
+  /* Cards / panels */
+  .panel {
+    @apply rounded-xl border border-line bg-white p-4 sm:p-5 shadow-sm;
+  }
+  .dark .panel {
+    @apply bg-[#1a2535] border-[#2a3a4a];
+  }
+  .card {
+    @apply rounded-xl border border-line bg-white p-4 shadow-sm transition hover:shadow-md;
+  }
+  .dark .card {
+    @apply bg-[#1a2535] border-[#2a3a4a];
+  }
+
+  /* Stat card */
+  .stat-card {
+    @apply rounded-xl border border-line bg-white p-4 text-center shadow-sm;
+  }
+  .dark .stat-card {
+    @apply bg-[#1a2535] border-[#2a3a4a];
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+           text-ink/70 hover:text-ink hover:bg-gray-100;
+  }
+  .dark .nav-link { @apply text-[#e8edf2]/70 hover:text-[#e8edf2] hover:bg-[#1a2535]; }
+  .nav-link.active {
+    @apply text-brand bg-brand/10;
+  }
+  .dark .nav-link.active { @apply text-brand bg-brand/20; }
+}
+
+/* ── Leaflet container height ── */
+.leaflet-container { width: 100%; height: 100%; min-height: 100%; z-index: 1; }
+.dark .leaflet-tile { filter: brightness(.85) saturate(.9) hue-rotate(180deg) invert(1); }
+.dark .leaflet-container { background: #0f1923; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-line rounded-full; }
+.dark ::-webkit-scrollbar-thumb { background: #2a3a4a; }

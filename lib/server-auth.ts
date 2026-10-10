@@ -2,11 +2,21 @@ import { createClient } from '@supabase/supabase-js';
 import { sql } from './db';
 import { ApiError } from './errors';
 
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+let _admin: ReturnType<typeof createClient> | null = null;
+export function getSupabaseAdmin() {
+  if (!_admin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
+    _admin = createClient(url, key, { auth: { persistSession: false } });
+  }
+  return _admin;
+}
+
+export const supabaseAdmin = new Proxy({} as any, {
+  get(_target, prop) {
+    return (getSupabaseAdmin() as any)[prop];
+  },
+});
 
 export type Role = 'resident' | 'department' | 'admin';
 export type AppUser = { id: string; email: string; role: Role; department_id: string | null };

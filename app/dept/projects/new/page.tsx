@@ -1,4 +1,7 @@
 "use client";
+
+export const dynamic = 'force-dynamic';
+
 import DeptShell from "@/components/dept/DeptShell";
 import ProjectForm from "@/components/dept/ProjectForm";
 

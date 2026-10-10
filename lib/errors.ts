@@ -1,14 +1,26 @@
-
 import { NextResponse } from 'next/server';
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-    public extra: Record<string, unknown> = {}
-  ) {
-    super(message);
+  public status: number;
+  public code: string;
+  public extra: Record<string, unknown>;
+  public conflicts?: any;
+
+  constructor(status: number, code: string, message: string, extra?: Record<string, unknown>);
+  constructor(message: string, code: string, status?: number, conflicts?: any);
+  constructor(a: number | string, b: string, c?: string | number, d?: any) {
+    if (typeof a === 'number') {
+      super((c as string) || '');
+      this.status = a;
+      this.code = b;
+      this.extra = (d as Record<string, unknown>) || {};
+    } else {
+      super(a);
+      this.code = b;
+      this.status = typeof c === 'number' ? c : 400;
+      this.conflicts = d;
+      this.extra = d ? { conflicts: d } : {};
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { sql } from '@/lib/db';
 import { fail, ApiError } from '@/lib/errors';
 import { getUser, assertOwnsProject } from '@/lib/server-auth';
@@ -6,6 +6,7 @@ import { isDate } from '@/lib/validate';
 import { findConflicts, checkResolutions, saveResolutions } from '@/lib/conflicts';
 import { audit } from '@/lib/audit';
 import { notifyFollowers } from '@/lib/notify';
+import { recomputeSavedRoutes } from '@/lib/saved-routes';
 
 const REASONS = [
   'weather', 'material_shortage', 'permit_pending', 'utility_clash',
@@ -81,7 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return { project: np, delay };
     });
 
-    // R10c later: after(() => recomputeSavedRoutes().catch(console.error));
+    after(() => recomputeSavedRoutes().catch(console.error));
     return NextResponse.json(result, { status: 201 });
   } catch (err) { return fail(err); }
 }

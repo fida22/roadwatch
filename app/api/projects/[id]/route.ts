@@ -1,6 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { sql } from '@/lib/db';
 import { fail, ApiError } from '@/lib/errors';
+
+import { getUser, assertOwnsProject } from '@/lib/server-auth';
+import { audit } from '@/lib/audit';
+import { notifyFollowers } from '@/lib/notify';
+import { CLOSURE_TYPES } from '@/lib/constants';
+import { recomputeSavedRoutes } from '@/lib/saved-routes';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,4 +40,45 @@ export async function GET(_: Request, { params }: Ctx) {
     return NextResponse.json({ ...p, updates, delays, complaints });
   } catch (err) { return fail(err); }
 }
-// PATCH (A5) is added later with the department endpoints.
+
+// Edit details/status. Dates NOT allowed here (they go through /delays)
+export async function PATCH(req: Request, { params }: Ctx) {
+  try {
+    const { id } = await params;
+    const user = await getUser(req, ['department', 'admin']);
+    await assertOwnsProject(user, id);
+    const b = await req.json();
+    if ('start_date' in b || 'end_date' in b)
+      throw new ApiError(400, 'VALIDATION', 'Use the delays endpoint to change dates');
+    if (b.closure_type && !(CLOSURE_TYPES as readonly string[]).includes(b.closure_type))
+      throw new ApiError(400, 'VALIDATION', 'Invalid closure_type');
+
+    const out = await sql.begin(async (tx) => {
+      const t = tx as unknown as typeof sql;
+      const [old] = await t`select status, title, closure_type from projects where id = ${id}::uuid`;
+      if (!old) throw new ApiError(404, 'NOT_FOUND', 'Project not found');
+
+      const [p] = await t`
+        update projects set
+          title = coalesce(${b.title ?? null}, title),
+          purpose = coalesce(${b.purpose ?? null}, purpose),
+          contractor = coalesce(${b.contractor ?? null}, contractor),
+          budget = coalesce(${b.budget ?? null}, budget),
+          status = coalesce(${b.status ?? null}::project_status, status),
+          closure_type = coalesce(${b.closure_type ?? null}::closure_type, closure_type),
+          updated_at = now()
+        where id = ${id}::uuid returning id, title, status, closure_type`;
+
+      if (b.status && b.status !== old.status) {
+        await notifyFollowers(t, id, 'status_change', `${p.title} is now ${b.status}`);
+        await audit(t, user.id, 'status_change', 'project', id, { from: old.status, to: b.status });
+      }
+      if (b.closure_type && b.closure_type !== old.closure_type) {
+        await audit(t, user.id, 'closure_type_change', 'project', id, { from: old.closure_type, to: b.closure_type });
+      }
+      return p;
+    });
+    after(() => recomputeSavedRoutes().catch(console.error));
+    return NextResponse.json(out);
+  } catch (err) { return fail(err); }
+}

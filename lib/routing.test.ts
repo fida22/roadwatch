@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildGraph, findRoute, findAlternatives, blocksOn, Edge } from './routing';
+import { groupClosuresByEdge } from './route-service';
 
 //  A --e1-- B --e2-- C     direct path A-B-C (200 m)
 //   \__e3__ D __e4__/       detour A-D-C (300 m)
@@ -73,5 +74,18 @@ describe('blocksOn (lifecycle and date boundaries)', () => {
   it('lane_restriction and none never block', () => {
     expect(blocksOn({ ...p, closure_type: 'lane_restriction' }, '2026-10-20')).toBe(false);
     expect(blocksOn({ ...p, closure_type: 'none' }, '2026-10-20')).toBe(false);
+  });
+});
+
+describe('blocked edges aggregation', () => {
+  it('two closures on one edge give one blocked edge with both listed', () => {
+    const rows = [
+      { edge_id: 'e1', project_id: 'p1', title: 'Closure 1', department: 'Water Board', closure_type: 'full_closure', end_date: '2026-11-01' },
+      { edge_id: 'e1', project_id: 'p2', title: 'Closure 2', department: 'Roads Department', closure_type: 'full_closure', end_date: '2026-11-05' },
+    ];
+    const m = groupClosuresByEdge(rows);
+    expect(m.size).toBe(1);
+    expect(m.get('e1')?.length).toBe(2);
+    expect(m.get('e1')?.map((c) => c.title)).toEqual(['Closure 1', 'Closure 2']);
   });
 });
