@@ -1,4 +1,4 @@
-@'
+
 import { NextResponse } from 'next/server';
 
 export class ApiError extends Error {
@@ -26,4 +26,3 @@ export function fail(e: unknown) {
     { status: 500 }
   );
 }
-'@ | Set-Content -Path .\lib\errors.ts -Encoding utf8
