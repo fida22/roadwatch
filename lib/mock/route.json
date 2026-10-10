@@ -1,0 +1,30 @@
+{
+  "status": "ok",
+  "travel_date": "2026-10-12",
+  "avoid_closures": true,
+  "origin": { "lat": 13.078, "lng": 80.265, "snapped_node_id": "44444444-4444-4444-8444-000000000002", "snap_distance_m": 0 },
+  "destination": { "lat": 13.085, "lng": 80.275, "snapped_node_id": "44444444-4444-4444-8444-000000000005", "snap_distance_m": 0 },
+  "routes": [
+    {
+      "id": "r1",
+      "geojson": { "type": "LineString", "coordinates": [[80.265, 13.078], [80.268, 13.0805], [80.27, 13.0795], [80.2707, 13.0827], [80.275, 13.085]] },
+      "distance_m": 1562,
+      "duration_s": 225,
+      "works_along_route": [
+        { "project_id": "33333333-3333-4333-8333-000000000002", "title": "Lane restriction, Service Lane", "department": "Roads Department", "closure_type": "lane_restriction", "end_date": "2026-11-04" }
+      ]
+    }
+  ],
+  "baseline": {
+    "geojson": { "type": "LineString", "coordinates": [[80.265, 13.078], [80.268, 13.0805], [80.2707, 13.0827], [80.275, 13.085]] },
+    "distance_m": 1337,
+    "duration_s": 193,
+    "crosses_closures": true
+  },
+  "closures_avoided": [
+    { "project_id": "33333333-3333-4333-8333-000000000001", "title": "Water pipeline replacement, Anna Salai", "department": "Water Board", "closure_type": "full_closure", "end_date": "2026-11-15" }
+  ],
+  "extra_distance_m": 225,
+  "extra_duration_s": 32,
+  "warnings": ["Road network and closures are simulated. Not for real navigation."]
+}

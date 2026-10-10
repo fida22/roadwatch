@@ -1,0 +1,19 @@
+{
+  "conflicts": [
+    {
+      "project_id": "33333333-3333-4333-8333-000000000001",
+      "title": "Water pipeline replacement, Anna Salai",
+      "department": "Water Board",
+      "severity": "high",
+      "distance_m": 4.2,
+      "start_date": "2026-10-01",
+      "end_date": "2026-11-15",
+      "status": "ongoing",
+      "internal": false,
+      "suggestions": {
+        "merge": { "start_date": "2026-10-01", "end_date": "2026-12-10" },
+        "shift": { "start_date": "2026-11-23", "end_date": "2026-12-31" }
+      }
+    }
+  ]
+}

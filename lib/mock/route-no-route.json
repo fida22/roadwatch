@@ -1,0 +1,13 @@
+{
+  "error": "No closure-free route found for this date",
+  "code": "NO_ROUTE",
+  "blocking_closures": [
+    { "project_id": "33333333-3333-4333-8333-000000000005", "title": "Sewer main works, Velachery Lane", "department": "Sewerage Board", "closure_type": "full_closure", "end_date": "2026-11-19" }
+  ],
+  "baseline": {
+    "geojson": { "type": "LineString", "coordinates": [[80.227, 12.982], [80.224, 12.984], [80.22, 12.985], [80.215, 12.978]] },
+    "distance_m": 1784,
+    "duration_s": 257,
+    "crosses_closures": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "active": 12,
+  "delayed": 4,
+  "avg_delay_days": 18.5,
+  "open_complaints": 9,
+  "active_closures": 2,
+  "most_dug_roads": [
+    { "road_id": "22222222-2222-4222-8222-000000000004", "name": "Adyar Main Road", "count_12m": 3 },
+    { "road_id": "22222222-2222-4222-8222-000000000001", "name": "Anna Salai", "count_12m": 2 },
+    { "road_id": "22222222-2222-4222-8222-000000000003", "name": "GST Road", "count_12m": 2 }
+  ]
+}

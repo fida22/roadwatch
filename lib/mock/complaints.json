@@ -1,0 +1,5 @@
+[
+  { "id": "55555555-5555-4555-8555-000000000001", "tracking_id": "RW-DEMO01", "category": "pothole", "description": "Deep pothole next to pipeline work", "photo_url": null, "lat": 13.0816, "lng": 80.26935, "project_id": "33333333-3333-4333-8333-000000000001", "status": "submitted", "upvotes": 2, "created_at": "2026-10-05T07:45:00Z" },
+  { "id": "55555555-5555-4555-8555-000000000002", "tracking_id": "RW-DEMO02", "category": "pothole", "description": "Same pothole, other side", "photo_url": null, "lat": 13.08178, "lng": 80.26935, "project_id": "33333333-3333-4333-8333-000000000001", "status": "submitted", "upvotes": 0, "created_at": "2026-10-05T08:10:00Z" },
+  { "id": "55555555-5555-4555-8555-000000000003", "tracking_id": "RW-DEMO03", "category": "unfinished_work", "description": "Trench left open", "photo_url": null, "lat": 12.985, "lng": 80.22, "project_id": null, "status": "acknowledged", "upvotes": 4, "created_at": "2026-10-03T12:00:00Z" }
+]
