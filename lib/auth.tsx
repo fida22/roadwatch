@@ -58,7 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       if (mock) {
-        const saved = typeof window !== "undefined" ? sessionStorage.getItem(MOCK_KEY) : null;
+        const saved = typeof window !== "undefined"
+          ? (sessionStorage.getItem(MOCK_KEY) || localStorage.getItem(MOCK_KEY))
+          : null;
         apply(saved ? mockUserFor(saved) : null);
       } else apply(await loadProfile());
       setLoading(false);
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = mockUserFor(email);
       if (!u || password !== "demo1234") throw new Error("Email or password is incorrect.");
       sessionStorage.setItem(MOCK_KEY, u.email);
+      localStorage.setItem(MOCK_KEY, u.email);
       apply(u); return u;
     }
     const sb = getSupabase()!;
@@ -81,7 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [mock, apply]);
 
   const signOut = useCallback(async () => {
-    if (mock) sessionStorage.removeItem(MOCK_KEY); else await getSupabase()!.auth.signOut();
+    if (mock) {
+      sessionStorage.removeItem(MOCK_KEY);
+      localStorage.removeItem(MOCK_KEY);
+    } else await getSupabase()!.auth.signOut();
     apply(null);
   }, [mock, apply]);
 

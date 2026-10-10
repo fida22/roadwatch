@@ -1,28 +1,86 @@
 "use client";
 // Admin panel (A9) with audit log viewer (A10). Admin role only.
+import Link from "next/link";
 import { useState } from "react";
 import DeptShell from "@/components/dept/DeptShell";
-import { EmptyState, ErrorState, Loading, useAsync } from "@/components/dept/ui";
+import { ClosureBadge, EmptyState, ErrorState, Loading, StatusBadge, useAsync } from "@/components/dept/ui";
 import { api, qs } from "@/lib/api";
-import { prettyTime } from "@/lib/dates";
-import { COMPLAINT_CATEGORY_LABEL, COMPLAINT_STATUS_LABEL, type AuditEntry, type Complaint, type Department } from "@/lib/types";
+import { pretty, prettyTime } from "@/lib/dates";
+import { COMPLAINT_CATEGORY_LABEL, COMPLAINT_STATUS_LABEL, STATUS_LABEL, type AuditEntry, type Complaint, type Department, type ProjectStatus, type ProjectSummary } from "@/lib/types";
 
-type Tab = "departments" | "complaints" | "audit";
+type Tab = "projects" | "departments" | "complaints" | "audit";
+
+const FILTERS: (ProjectStatus | "all")[] = ["all", "planned", "ongoing", "delayed", "completed", "cancelled"];
 
 function Admin() {
-  const [tab, setTab] = useState<Tab>("departments");
+  const [tab, setTab] = useState<Tab>("projects");
   return (
     <>
       <h1 className="mb-4 text-xl font-semibold">Admin</h1>
       <div className="mb-4 flex flex-wrap gap-2" role="tablist">
-        {([["departments", "Departments"], ["complaints", "Moderate complaints"], ["audit", "Audit log"]] as [Tab, string][]).map(([k, l]) => (
+        {([["projects", "All projects"], ["departments", "Departments"], ["complaints", "Moderate complaints"], ["audit", "Audit log"]] as [Tab, string][]).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`btn !min-h-[40px] !px-3 border ${tab === k ? "border-brand bg-brand text-white" : "border-line bg-white"}`}>{l}</button>
         ))}
       </div>
+      {tab === "projects" && <AdminProjects />}
       {tab === "departments" && <Departments />}
       {tab === "complaints" && <Moderation />}
       {tab === "audit" && <Audit />}
     </>
+  );
+}
+
+function AdminProjects() {
+  const { data, error, loading, reload } = useAsync(() => api<ProjectSummary[]>("/api/projects"), []);
+  const [filter, setFilter] = useState<ProjectStatus | "all">("all");
+
+  if (loading && !data) return <Loading label="Loading projects" />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  const all = data ?? [];
+  const list = filter === "all" ? all : all.filter((p) => p.status === filter);
+  const count = (s: ProjectStatus) => all.filter((p) => p.status === s).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink/70">Overview of all infrastructure works across every department.</p>
+        <Link href="/dept/projects/new" className="btn-primary">Add work</Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+        {FILTERS.map((f) => (
+          <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f}
+            className={`btn !min-h-[40px] !px-3 border ${filter === f ? "border-brand bg-brand text-white" : "border-line bg-white"}`}>
+            {f === "all" ? `All (${all.length})` : `${STATUS_LABEL[f]} (${count(f)})`}
+          </button>
+        ))}
+      </div>
+
+      {all.length === 0 ? (
+        <EmptyState title="No projects yet" hint="Add work to see it appear here." action={<Link className="btn-primary" href="/dept/projects/new">Add work</Link>} />
+      ) : list.length === 0 ? (
+        <EmptyState title={`No ${STATUS_LABEL[filter as ProjectStatus].toLowerCase()} projects`} />
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {list.map((p) => (
+            <li key={p.id}>
+              <Link href={`/dept/projects/${p.id}`} className="panel block h-full hover:border-brand">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-medium">{p.title}</h2>
+                  <div className="flex flex-wrap justify-end gap-1.5"><StatusBadge status={p.status} /><ClosureBadge type={p.closure_type} /></div>
+                </div>
+                <p className="mt-1 text-sm text-ink/70">{pretty(p.start_date)} to {pretty(p.end_date)}</p>
+                <p className="mt-1 text-sm text-ink/70">
+                  {p.delay_days > 0 ? <span className="font-medium text-st-delayed">{p.delay_days} days late</span> : "On schedule"}
+                  {p.department?.name && ` · ${p.department.name}`}
+                  {p.redig_count_12m > 1 && ` · road dug ${p.redig_count_12m} times in 12 months`}
+                </p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

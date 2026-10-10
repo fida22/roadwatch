@@ -94,50 +94,45 @@ const allComplaints = () =>
 // ---- projects
 export async function getProjects(q: Record<string, string> = {}): Promise<Project[]> {
   if (!MOCK) return ok(await fetch('/api/projects' + qs(q)));
-  return P.filter(
-    (p) =>
-      (!q.status || p.status === q.status) &&
-      (!q.department_id || p.department.id === q.department_id) &&
-      (!q.closure_type || p.closure_type === q.closure_type) &&
-      (!q.q || (p.title + p.department.name).toLowerCase().includes(q.q.toLowerCase())) &&
-      (!q.from || p.end_date >= q.from) &&
-      (!q.to || p.start_date <= q.to)
-  );
+  return (await mockRoute('GET', '/api/projects' + qs(q))) as Project[];
 }
 
 export async function getProject(id: string): Promise<Project | null> {
   if (!MOCK) return ok(await fetch('/api/projects/' + id));
-  const p = P.find((x) => x.id === id);
-  if (!p) return null;
-  const v = ls.get<any>('ver:' + id, { happening: 0, not_happening: 0 });
-  return {
-    ...p,
-    complaints: allComplaints().filter((c) => c.project_id === id),
-    follower_count: 12 + (ls.get<string[]>('follows', []).includes(id) ? 1 : 0),
-    verifications: v,
-  };
+  try {
+    const p = (await mockRoute('GET', '/api/projects/' + id)) as any;
+    if (!p) return null;
+    const v = ls.get<any>('ver:' + id, { happening: 0, not_happening: 0 });
+    return {
+      ...p,
+      complaints: allComplaints().filter((c) => c.project_id === id),
+      follower_count: (p.follower_count ?? 12) + (ls.get<string[]>('follows', []).includes(id) ? 1 : 0),
+      verifications: v,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function getDepartments(): Promise<{ id: string; name: string; color: string }[]> {
   if (!MOCK) return ok(await fetch('/api/departments'));
-  const m = new Map();
-  P.forEach((p) => m.set(p.department.id, p.department));
-  return [...m.values()];
+  return (await mockRoute('GET', '/api/departments')) as any[];
 }
 
 export async function getStats(): Promise<any> {
   if (!MOCK) return ok(await fetch('/api/stats'));
-  const act = P.filter((p) => ['ongoing', 'delayed'].includes(p.status)),
-    del = P.filter((p) => p.delay_days > 0);
+  const all = (await mockRoute('GET', '/api/projects')) as any[];
+  const act = all.filter((p) => ['ongoing', 'delayed'].includes(p.status)),
+    del = all.filter((p) => p.delay_days > 0);
   const roads = new Map<string, any>();
-  P.forEach((p) =>
-    roads.set(p.road_id, { road_id: p.road_id, name: p.road_name, count: p.redig_count_12m })
+  all.forEach((p) =>
+    roads.set(p.road_id, { road_id: p.road_id, name: p.title, count: p.redig_count_12m ?? 1 })
   );
   return {
     active: act.length,
     delayed: del.length,
     avg_delay_days: del.length
-      ? Math.round(del.reduce((s, p) => s + p.delay_days, 0) / del.length)
+      ? Math.round(del.reduce((s, p: any) => s + p.delay_days, 0) / del.length)
       : 0,
     open_complaints: allComplaints().filter((c) => c.status !== 'resolved').length,
     active_closures: act.filter((p) => p.closure_type === 'full_closure').length,
@@ -163,7 +158,9 @@ export async function checkDuplicate(
     allComplaints().find(
       (c) => c.category === category && c.status !== 'resolved' && distM([lat, lng], [c.lat, c.lng]) <= 30
     ) || null;
-  const np = P.filter((p) => !['cancelled', 'completed'].includes(p.status))
+  const allProjects = await getProjects();
+  const np = allProjects
+    .filter((p) => !['cancelled', 'completed'].includes(p.status))
     .map((p) => ({ p, d: distToLine([lat, lng], p.geojson.coordinates) }))
     .filter((x) => x.d <= 50)
     .sort((a, b) => a.d - b.d)[0];
@@ -248,7 +245,8 @@ export const rememberComplaint = (t: string) =>
 export async function getFollows(): Promise<Project[]> {
   if (!MOCK) return ok(await fetch('/api/me/follows'));
   const f = ls.get<string[]>('follows', []);
-  return P.filter((p) => f.includes(p.id));
+  const allProjects = await getProjects();
+  return allProjects.filter((p) => f.includes(p.id));
 }
 
 export const isFollowing = (id: string) => ls.get<string[]>('follows', []).includes(id);

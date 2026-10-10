@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { ThemeToggle } from '@/lib/theme';
 import NotificationBell from './NotificationBell';
 
@@ -20,8 +21,14 @@ const NAV_LINKS = [
 
 export default function Nav() {
   const { user, logout } = useApp();
+  const { signOut } = useAuth();
   const path = usePathname();
   const [open, setOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    logout();
+    await signOut();
+  };
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? path === href : path === href || path.startsWith(href + '/');
@@ -71,7 +78,7 @@ export default function Nav() {
                 {user.name}
               </span>
               <button
-                onClick={logout}
+                onClick={handleSignOut}
                 className="btn-secondary !min-h-[36px] !px-3 !text-xs"
               >
                 Sign out
@@ -116,7 +123,7 @@ export default function Nav() {
             {user ? (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink/60 dark:text-[#e8edf2]/60 truncate">{user.name}</span>
-                <button onClick={() => { logout(); setOpen(false); }} className="btn-secondary !min-h-[36px] !px-3 !text-xs">
+                <button onClick={async () => { await handleSignOut(); setOpen(false); }} className="btn-secondary !min-h-[36px] !px-3 !text-xs">
                   Sign out
                 </button>
               </div>

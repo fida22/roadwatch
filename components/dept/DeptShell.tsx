@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useApp } from "@/lib/auth-context";
 import type { Role } from "@/lib/types";
 import RequireRole from "./RequireRole";
 import { DeptChip } from "./ui";
@@ -23,6 +24,7 @@ export default function DeptShell({ children, roles = ["department", "admin"] }:
 
 function Frame({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const { logout } = useApp();
   const path = usePathname();
   const router = useRouter();
   const items = user?.role === "admin" ? [...NAV, { href: "/admin", label: "Admin" }] : NAV;
@@ -33,7 +35,7 @@ function Frame({ children }: { children: React.ReactNode }) {
           <Link href="/" className="font-semibold text-brand">RoadWatch</Link>
           <div className="flex items-center gap-3 text-sm">
             {user?.department ? <DeptChip name={user.department.name} color={user.department.color} /> : <span className="text-xs font-medium">Admin</span>}
-            <button className="btn-secondary !min-h-[36px] !px-3" onClick={async () => { await signOut(); router.replace("/login"); }}>Sign out</button>
+            <button className="btn-secondary !min-h-[36px] !px-3" onClick={async () => { logout(); await signOut(); router.replace("/login"); }}>Sign out</button>
           </div>
         </div>
         <nav aria-label="Department" className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3">

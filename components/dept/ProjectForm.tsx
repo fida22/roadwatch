@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { CLOSURE_LABEL, type ClosureType, type LineStringGeoJSON, type ProjectSummary, type Road } from "@/lib/types";
+import { CLOSURE_LABEL, type ClosureType, type Department, type LineStringGeoJSON, type ProjectSummary, type Road } from "@/lib/types";
 import ConflictPanel from "./ConflictPanel";
 import MapDrawer from "./MapDrawer";
 import { DeptChip, ErrorState, Loading, useAsync } from "./ui";
 import { useConflicts } from "./useConflicts";
 
-type Errors = Partial<Record<"title" | "start" | "end" | "road" | "geometry" | "budget", string>>;
+type Errors = Partial<Record<"title" | "start" | "end" | "road" | "geometry" | "budget" | "dept", string>>;
 
 export default function ProjectForm() {
   const { user } = useAuth();
@@ -24,14 +24,20 @@ export default function ProjectForm() {
   const [end, setEnd] = useState("");
   const [closure, setClosure] = useState<ClosureType>("none");
   const [roadId, setRoadId] = useState("");
+  const [deptId, setDeptId] = useState(user?.department?.id ?? "");
   const [points, setPoints] = useState<[number, number][]>([]);
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const depts = useAsync(() => api<Department[]>("/api/departments"), []);
   const roads = useAsync(() => api<Road[]>("/api/roads"), []);
   const others = useAsync(() => api<ProjectSummary[]>("/api/projects"), []);
   const road = roads.data?.find((r) => r.id === roadId) ?? null;
+
+  useEffect(() => {
+    if (user?.department?.id) setDeptId(user.department.id);
+  }, [user]);
 
   const geojson: LineStringGeoJSON | null = points.length >= 2 ? { type: "LineString", coordinates: points } : null;
   const cf = useConflicts({ geojson, start, end });
@@ -44,6 +50,7 @@ export default function ProjectForm() {
   function validate(): Errors {
     const e: Errors = {};
     if (!title.trim()) e.title = "Add a title for the work.";
+    if (user?.role === "admin" && !deptId) e.dept = "Choose which department this work belongs to.";
     if (!start) e.start = "Choose a planned start date.";
     if (!end) e.end = "Choose a planned end date.";
     else if (start && end < start) e.end = "End date must be on or after the start date.";
@@ -69,6 +76,7 @@ export default function ProjectForm() {
         json: {
           title: title.trim(), purpose: purpose.trim() || null, contractor: contractor.trim() || null,
           start_date: start, end_date: end, geojson, road_id: roadId, closure_type: closure, budget: budget ? Number(budget) : null,
+          department_id: deptId || undefined,
           resolutions: cf.resolutionList,
         },
       });
@@ -101,8 +109,28 @@ export default function ProjectForm() {
         <div className="panel space-y-4">
           <h2 className="font-semibold">Work details</h2>
           <div>
-            <span className="label">Department</span>
-            {user?.department ? <DeptChip name={user.department.name} color={user.department.color} /> : <span className="text-sm text-ink/70">Admin account</span>}
+            <label className="label" htmlFor="dept-select">Department</label>
+            {user?.role === "admin" ? (
+              <div>
+                <select
+                  id="dept-select"
+                  className="field"
+                  value={deptId}
+                  onChange={(e) => setDeptId(e.target.value)}
+                  aria-invalid={!!errors.dept}
+                >
+                  <option value="">Choose a department…</option>
+                  {depts.data?.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                {errors.dept && <p className="mt-1 text-sm text-st-delayed">{errors.dept}</p>}
+              </div>
+            ) : user?.department ? (
+              <DeptChip name={user.department.name} color={user.department.color} />
+            ) : (
+              <span className="text-sm text-ink/70">Admin account</span>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="title">Title</label>
