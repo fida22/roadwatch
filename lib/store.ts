@@ -1,0 +1,1 @@
+export const ls={get<T>(k:string,d:T):T{try{const v=localStorage.getItem('rw:'+k);return v?JSON.parse(v):d}catch{return d}},set(k:string,v:any){try{localStorage.setItem('rw:'+k,JSON.stringify(v))}catch{}}};

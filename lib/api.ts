@@ -1,47 +1,80 @@
-// Typed fetch wrapper for the API contract (build doc section 6).
-// While P1's endpoints are not live, set NEXT_PUBLIC_USE_MOCK=true: any endpoint NOT listed in
-// LIVE_ENDPOINTS (lib/mock/p3-fallbacks.ts) is answered from the in-memory mock. Add a line to
-// LIVE_ENDPOINTS as each real endpoint goes live; set NEXT_PUBLIC_USE_MOCK=false before submission.
-import { ApiError } from "./errors";
-import { getSupabase } from "./supabase";
-import { isMocked, mockRoute } from "./mock/p3-fallbacks";
-
-export { ApiError };
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
-
-interface Opts { method?: "GET" | "POST" | "PATCH" | "DELETE"; json?: unknown; form?: FormData }
-
-export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
-  const method = opts.method ?? "GET";
-  if (USE_MOCK && isMocked(method, path)) return (await mockRoute(method, path, opts.json ?? opts.form)) as T;
-
-  const headers: Record<string, string> = {};
-  const sb = getSupabase();
-  if (sb) {
-    const { data } = await sb.auth.getSession();
-    if (data.session) headers.Authorization = `Bearer ${data.session.access_token}`;
-  }
-  let body: BodyInit | undefined;
-  if (opts.form) body = opts.form; // browser sets the multipart boundary
-  else if (opts.json !== undefined) { headers["Content-Type"] = "application/json"; body = JSON.stringify(opts.json); }
-
-  let res: Response;
-  try { res = await fetch(path, { method, headers, body }); }
-  catch { throw new ApiError("Can't reach the server. Check your connection and try again.", "NETWORK", 0); }
-
-  const text = await res.text();
-  let data: unknown = null;
-  try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON body */ }
-  if (!res.ok) {
-    const e = (data ?? {}) as { error?: string; code?: string; conflicts?: ApiError["conflicts"] };
-    throw new ApiError(e.error ?? `Request failed (${res.status})`, e.code ?? "UNKNOWN", res.status, e.conflicts);
-  }
-  return data as T;
-}
-
-export const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
-  const p = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") p.set(k, String(v)); });
-  const s = p.toString();
-  return s ? `?${s}` : "";
-};
+import projectsMock from './mock/projects.json';
+import landmarksMock from './mock/landmarks.json';
+import routeMock from './mock/route.json';
+import complaintsMock from './mock/complaints.json';
+import notifMock from './mock/notifications.json';
+import { ls } from './store';
+import { distToLine, distM } from './geo';
+export const MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== 'false';
+export type Project=any; export type Landmark={node_id:string;label:string;lat:number;lng:number};
+const ok=async(r:Response)=>{ if(!r.ok){const j=await r.json().catch(()=>({}));throw Object.assign(new Error(j.error||`HTTP ${r.status}`),{code:j.code});} return r.json(); };
+const qs=(q:Record<string,string>)=>new URLSearchParams(Object.entries(q).filter(([,v])=>v)).toString();
+const wait=()=>new Promise(r=>setTimeout(r,300));
+const err=(m:string,code:string)=>Object.assign(new Error(m),{code});
+const P=projectsMock as Project[];
+const allComplaints=()=>[...(complaintsMock as any[]),...ls.get<any[]>('extra_complaints',[])].map(c=>({...c,upvotes:c.upvotes+(ls.get<string[]>('upv',[]).includes(c.id)?1:0)}));
+// ---- projects
+export async function getProjects(q:Record<string,string>={}):Promise<Project[]>{
+  if(!MOCK) return ok(await fetch('/api/projects?'+qs(q)));
+  return P.filter(p=>(!q.status||p.status===q.status)&&(!q.department_id||p.department.id===q.department_id)&&(!q.closure_type||p.closure_type===q.closure_type)
+    &&(!q.q||(p.title+p.department.name).toLowerCase().includes(q.q.toLowerCase()))&&(!q.from||p.end_date>=q.from)&&(!q.to||p.start_date<=q.to));}
+export async function getProject(id:string):Promise<Project|null>{
+  if(!MOCK) return ok(await fetch('/api/projects/'+id));
+  const p=P.find(x=>x.id===id);if(!p)return null;
+  const v=ls.get<any>('ver:'+id,{happening:0,not_happening:0});
+  return {...p,complaints:allComplaints().filter(c=>c.project_id===id),follower_count:12+(ls.get<string[]>('follows',[]).includes(id)?1:0),verifications:v};}
+export async function getDepartments():Promise<{id:string;name:string;color:string}[]>{
+  if(!MOCK) return ok(await fetch('/api/departments'));
+  const m=new Map();P.forEach(p=>m.set(p.department.id,p.department));return [...m.values()];}
+export async function getStats():Promise<any>{
+  if(!MOCK) return ok(await fetch('/api/stats'));
+  const act=P.filter(p=>['ongoing','delayed'].includes(p.status)),del=P.filter(p=>p.delay_days>0);
+  const roads=new Map<string,any>();P.forEach(p=>roads.set(p.road_id,{road_id:p.road_id,name:p.road_name,count:p.redig_count_12m}));
+  return {active:act.length,delayed:del.length,avg_delay_days:del.length?Math.round(del.reduce((s,p)=>s+p.delay_days,0)/del.length):0,
+    open_complaints:allComplaints().filter(c=>c.status!=='resolved').length,active_closures:act.filter(p=>p.closure_type==='full_closure').length,
+    most_dug_roads:[...roads.values()].sort((a,b)=>b.count-a.count)};}
+// ---- complaints
+export async function checkDuplicate(lat:number,lng:number,category:string):Promise<{duplicate:any|null;nearest_project:any|null}>{
+  if(!MOCK) return ok(await fetch('/api/complaints/check-duplicate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat,lng,category})}));
+  const dup=allComplaints().find(c=>c.category===category&&c.status!=='resolved'&&distM([lat,lng],[c.lat,c.lng])<=30)||null;
+  const np=P.filter(p=>!['cancelled','completed'].includes(p.status)).map(p=>({p,d:distToLine([lat,lng],p.geojson.coordinates)})).filter(x=>x.d<=50).sort((a,b)=>a.d-b.d)[0];
+  return {duplicate:dup,nearest_project:np?{id:np.p.id,title:np.p.title}:null};}
+export async function postComplaint(f:{category:string;description:string;lat:number;lng:number;contact?:string;photo?:File|null}){
+  if(!MOCK){const fd=new FormData();Object.entries(f).forEach(([k,v])=>{if(v!=null&&v!=='')fd.append(k,v as any)});return ok(await fetch('/api/complaints',{method:'POST',body:fd}));}
+  await wait();const np=(await checkDuplicate(f.lat,f.lng,f.category)).nearest_project;
+  const tid='RW-'+Math.floor(2000+Math.random()*7000);let photo:string|null=null;
+  if(f.photo&&f.photo.size<400000)photo=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result as string);fr.readAsDataURL(f.photo!)});
+  ls.set('extra_complaints',[...ls.get<any[]>('extra_complaints',[]),{id:'x'+tid,tracking_id:tid,category:f.category,description:f.description,photo_url:photo,lat:f.lat,lng:f.lng,project_id:np?.id||null,status:'submitted',response:null,upvotes:0,created_at:new Date().toISOString().slice(0,10)}]);
+  return {tracking_id:tid,linked_project_id:np?.id||null};}
+export async function getComplaint(tid:string):Promise<any|null>{
+  if(!MOCK){try{return await ok(await fetch('/api/complaints/'+encodeURIComponent(tid)))}catch(e:any){if(e.code==='NOT_FOUND')return null;throw e}}
+  return allComplaints().find(c=>c.tracking_id.toLowerCase()===tid.trim().toLowerCase())||null;}
+export async function upvote(c:any):Promise<number>{
+  if(!MOCK){const r=await fetch(`/api/complaints/${c.id}/upvote`,{method:'POST'});return (await ok(r)).upvotes;}
+  const u=ls.get<string[]>('upv',[]);if(u.includes(c.id))throw err('You already upvoted this complaint.','ALREADY_UPVOTED');ls.set('upv',[...u,c.id]);return c.upvotes+1;}
+export const myComplaintIds=()=>ls.get<string[]>('mine',[]);
+export const rememberComplaint=(t:string)=>ls.set('mine',[...new Set([t,...myComplaintIds()])]);
+// ---- follow, notifications, verification
+export async function getFollows():Promise<Project[]>{
+  if(!MOCK) return ok(await fetch('/api/me/follows'));const f=ls.get<string[]>('follows',[]);return P.filter(p=>f.includes(p.id));}
+export const isFollowing=(id:string)=>ls.get<string[]>('follows',[]).includes(id);
+export async function setFollow(id:string,on:boolean){
+  if(!MOCK){await ok(await fetch(`/api/projects/${id}/follow`,{method:on?'POST':'DELETE'}));return;}
+  const f=ls.get<string[]>('follows',[]).filter(x=>x!==id);ls.set('follows',on?[...f,id]:f);}
+export async function getNotifications():Promise<any[]>{
+  if(!MOCK) return ok(await fetch('/api/me/notifications'));const r=ls.get<string[]>('nread',[]);return (notifMock as any[]).map(n=>({...n,is_read:n.is_read||r.includes(n.id)}));}
+export async function markRead(id:string){ if(!MOCK){await ok(await fetch(`/api/notifications/${id}/read`,{method:'POST'}));return;} ls.set('nread',[...ls.get<string[]>('nread',[]),id]);}
+export async function verify(id:string,value:'happening'|'not_happening',photo?:File|null){
+  if(!MOCK){const fd=new FormData();fd.append('value',value);if(photo)fd.append('photo',photo);return ok(await fetch(`/api/projects/${id}/verifications`,{method:'POST',body:fd}));}
+  const k='ver:'+id,v=ls.get<any>(k,{happening:0,not_happening:0});if(v.mine)throw err('You already verified this work.','ALREADY_VERIFIED');
+  const n={...v,[value]:v[value]+1,mine:value};ls.set(k,n);return n;}
+// ---- routing
+export async function getLandmarks():Promise<Landmark[]>{ return MOCK?landmarksMock:ok(await fetch('/api/route/landmarks')); }
+export async function postRoute(body:any):Promise<{data?:any;error?:any}>{
+  if(MOCK){await new Promise(r=>setTimeout(r,400));return {data:{...routeMock,travel_date:body.travel_date,routes:routeMock.routes.slice(0,body.alternatives||1)}};}
+  const r=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();return r.ok?{data:j}:{error:j};}
+export async function getSavedRoutes():Promise<any[]>{ return MOCK?ls.get<any[]>('saved',[]):ok(await fetch('/api/me/routes')); }
+export async function saveRoute(b:any){
+  if(!MOCK) return ok(await fetch('/api/me/routes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}));
+  const s={...b,id:'s'+Date.now(),last_checked_at:new Date().toISOString(),status:'No change since saved'};ls.set('saved',[...ls.get<any[]>('saved',[]),s]);return s;}
+export async function deleteRoute(id:string){ if(!MOCK){await ok(await fetch('/api/me/routes/'+id,{method:'DELETE'}));return;} ls.set('saved',ls.get<any[]>('saved',[]).filter(s=>s.id!==id)); }
