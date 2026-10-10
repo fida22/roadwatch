@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { fail, ApiError } from '@/lib/errors';
+import { getUser } from '@/lib/auth';
+import { assertDates, assertGeometry, required } from '@/lib/validate';
+import { findConflicts, checkResolutions, saveResolutions } from '@/lib/conflicts';
+import { audit } from '@/lib/audit';
 import { CLOSURE_TYPES } from '@/lib/constants';
 
 export async function GET(req: Request) {
@@ -46,5 +50,55 @@ export async function GET(req: Request) {
       order by p.start_date desc`;
 
     return NextResponse.json(rows);
+  } catch (err) { return fail(err); }
+}
+
+export async function POST(req: Request) {
+  try {
+    const user = await getUser(req, ['department']);
+    const b = await req.json();
+    required(b, ['title', 'start_date', 'end_date', 'geojson']);
+
+    const closure = b.closure_type ?? 'none';
+    if (!(CLOSURE_TYPES as readonly string[]).includes(closure))
+      throw new ApiError(400, 'VALIDATION', 'Invalid closure_type');
+
+    assertDates(b.start_date, b.end_date);
+    assertGeometry(b.geojson);
+
+    const g = JSON.stringify(b.geojson);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const status = b.start_date <= today ? 'ongoing' : 'planned';
+
+    const project = await sql.begin(async (tx) => {
+      const t = tx as unknown as typeof sql;
+      // serialize clashing submissions: the second submitter sees the first
+      await t`select pg_advisory_xact_lock(hashtext('project-conflicts'))`;
+
+      const conflicts = await findConflicts(t, {
+        geojson: b.geojson, start: b.start_date, end: b.end_date,
+        departmentId: user.department_id,
+      });
+      const res = b.resolutions ?? [];
+      checkResolutions(conflicts, res); // throws 409 CONFLICT_UNRESOLVED
+
+      const [p] = await t`
+        insert into projects (title, purpose, department_id, contractor, status, closure_type,
+          start_date, end_date, original_end_date, budget, road_id, geom, created_by)
+        values (${b.title}, ${b.purpose ?? null}, ${user.department_id}, ${b.contractor ?? null},
+          ${status}::project_status, ${closure}::closure_type,
+          ${b.start_date}::date, ${b.end_date}::date, ${b.end_date}::date,
+          ${b.budget ?? null}, ${b.road_id ?? null}::uuid,
+          st_setsrid(st_geomfromgeojson(${g}::text), 4326), ${user.id})
+        returning id, title, status, closure_type`;
+
+      await saveResolutions(t, p.id, user.id, conflicts, res);
+      await audit(t, user.id, 'create_project', 'project', p.id,
+        { conflicts: conflicts.length, closure_type: closure });
+      return p;
+    });
+
+    // R10c later: after(() => recomputeSavedRoutes().catch(console.error));
+    return NextResponse.json(project, { status: 201 });
   } catch (err) { return fail(err); }
 }
